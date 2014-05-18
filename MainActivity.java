@@ -1,15 +1,13 @@
 package com.dqtools.egg;
 
+import com.dqtools.egg.SoundPoolPlayer;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.NotificationCompat;
 import android.annotation.SuppressLint;
-import android.app.NotificationManager;
 import android.content.Context;
-import android.media.RingtoneManager;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Vibrator;
@@ -28,6 +26,7 @@ import android.widget.TextView;
 public class MainActivity extends ActionBarActivity {
 
     private int mCount;
+    private int mSumMins;
     private String mTask;
     private boolean mbSound;
     private boolean mbStopped;
@@ -36,6 +35,7 @@ public class MainActivity extends ActionBarActivity {
     private int mMins;
 
     private CountDownTimer mWaitTimer;
+    private SoundPoolPlayer mSound;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +46,8 @@ public class MainActivity extends ActionBarActivity {
             getSupportFragmentManager().beginTransaction()
                     .add(R.id.container, new PlaceholderFragment()).commit();
         }
+
+        mSound = new SoundPoolPlayer(this);
 
         mbSound = true;
         mbTest = mbVibrate = false;
@@ -59,6 +61,11 @@ public class MainActivity extends ActionBarActivity {
 
         addListeners();
         runMins(2);
+    }
+
+    @Override
+    protected void onDestroy() {
+        mSound.release();
     }
 
     @Override
@@ -117,6 +124,16 @@ public class MainActivity extends ActionBarActivity {
 
     private void updateLastLine() {
         updateLastLine(String.valueOf(++mCount) + " times for " + mTask + " (" + String.valueOf(mMins) + " mins)");
+        mSumMins += mMins;
+    }
+
+    private String minsToHrs(int m) {
+        if (m <= 0) return "";
+        int h = m/60;
+        String s = "";
+        if (h!=0) s = String.valueOf(h) + " h ";
+        s += m%60 + " mins";
+        return s;
     }
 
     /////////// start timer
@@ -127,7 +144,8 @@ public class MainActivity extends ActionBarActivity {
             @SuppressLint("SimpleDateFormat")
             public void onTick(long millisUntilFinished) {
                 TextView tv = (TextView)findViewById(R.id.tvTime);
-                tv.setText("Remaining: " + new SimpleDateFormat("mm:ss").format(new Date(millisUntilFinished)));
+                tv.setText("Remaining: " + new SimpleDateFormat("mm:ss").format(new Date(millisUntilFinished))
+                        + "  SUM: " + minsToHrs(mSumMins));
 
                 // Update task, it might be changed anytime by user
                 EditText ed = (EditText)findViewById(R.id.editSprint);
@@ -138,12 +156,9 @@ public class MainActivity extends ActionBarActivity {
                 if (mbStopped) return;
 
                 if (mbSound) { // Play a sound
-                    NotificationManager notificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
-                    Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-                    NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(getApplicationContext()).setSound(soundUri);
-                    notificationManager.notify(0, mBuilder.build());
+                    mSound.playShortResource(R.raw.till);
                 }
-                if (mbVibrate) ((Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE)).vibrate(500); // 500 milliseconds
+                if (mbVibrate) ((Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE)).vibrate(20); // in milliseconds
 
                 updateLastLine(); go(); // Go again
             }
@@ -183,11 +198,11 @@ public class MainActivity extends ActionBarActivity {
         btn.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View arg0) {
-                 if (mWaitTimer != null) {
-                     mWaitTimer.cancel();
-                     mWaitTimer = null;
-                     updateLastLine();
-                 }
+                if (mWaitTimer != null) {
+                    mWaitTimer.cancel();
+                    mWaitTimer = null;
+                    updateLastLine();
+                }
                 mbStopped = true;
                 updateBtns();
             }
